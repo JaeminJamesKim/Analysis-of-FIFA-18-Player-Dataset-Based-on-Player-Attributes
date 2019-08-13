@@ -1,0 +1,1176 @@
+---
+title: "Analysis of FIFA 18 Player Dataset Based on Player Attributes"
+author: "Team Steam: Jaemin Kim, Siwook Yong, Sang Min Lee"
+date: "December 15, 2018"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+
+```{r, include = FALSE}
+#============================================================================================================================
+#============================================================================================================================
+
+#=======================================! OUR REPORT BEGINS AT LINE 550!=====================================================
+#=================================================! THANK YOU !==============================================================
+
+#============================================================================================================================
+#============================================================================================================================
+```
+
+
+
+```{r, include = FALSE}
+#Test
+
+raw <- read.csv("CompleteDataset.csv")
+
+
+library(stringr)
+
+numextract <- function(string){
+  # str_extract(string, "\\-*\\d+\\.*\\d*")
+  str_extract(string, "[[:digit:]]+")
+}
+
+# x=as.numeric(numextract(raw$Wage))
+# y=as.numeric(raw$Overall)
+# 
+# plot(x~y)
+```
+
+
+
+```{r, include = FALSE}
+#Data Cleaning
+
+
+
+colnames(raw)
+```
+
+```{r, include = FALSE}
+#Removed Data
+
+
+library(dplyr)
+data=select(raw, c(-X, -Photo, -Flag, -Club.Logo, -Special, -ID, -Preferred.Positions))
+colnames(data)
+```
+
+
+```{r, include = FALSE}
+#Removed +/- in data & cleaned Wage, Value, etc..to all numbers
+
+
+data[,c(-1,-3,-6)]=apply(data[,c(-1,-3,-6)], 2, numextract)
+```
+
+
+
+```{r, include = FALSE}
+#Changed Factor variables to Intergers using as.numeric()
+
+
+
+data[,c(-1,-3,-6)]=apply(data[,c(-1,-3,-6)], 2, as.numeric)
+```
+
+
+```{r, include = FALSE}
+#Changed Blank NA values to 0
+
+
+data[is.na(data)] <- 0
+```
+
+```{r, include = FALSE}
+#Removed Players with Wage = 0
+
+
+data=data[!(data$Wage==0),]
+```
+
+
+```{r, include = FALSE}
+#devide positions(atk, mid, def, gk)
+
+
+# atk= data[,c("CAM","CF", "LAM", "LF", "LS", "RAM", "RF", "RS", "ST")]
+atk_pos=c("CF", "LF", "LS","RF", "RS", "ST", "LW", "RW")
+
+# mid= data[, c("CB", "CM", "LCM", "LM", "RCM", "RM", "LW", "RW")]
+mid_pos=c("CM", "LCM", "LM", "RCM", "RM", "CAM", "LAM", "RAM", "CDM", "LDM", "RDM"
+)
+
+# def= data[, c("CDM", "LB", "LCB", "LDM", "RB", "RCB", "RDM", "LWB", "RWB")]
+def_pos=c("LB", "LCB","RB", "RCB", "LWB", "RWB", "CB")
+
+gk_pos=0
+```
+
+
+```{r, include = FALSE}
+#For each player, pick 9 highest position values
+
+
+for(i in 1:nrow(data)){
+  a=sort(data[i,43:68], decreasing = TRUE)
+  b=colnames(a[1:9])
+  # a
+  # b
+  atk_ct=0
+  mid_ct=0
+  def_ct=0
+  gk_ct=0
+  for(j in 1:9){
+    if(b[j] %in% atk_pos)
+      atk_ct=atk_ct+1
+    if(b[j] %in% mid_pos)
+      mid_ct=mid_ct+1
+    if(b[j] %in% def_pos)
+      def_ct=def_ct+1
+    if(a[j] == gk_pos)
+      gk_ct=gk_ct+1
+  }
+  if(max(mid_ct,def_ct, atk_ct, gk_ct) == atk_ct)
+    data$pos[i]="OFF"
+  if(max(mid_ct,def_ct, atk_ct, gk_ct) == mid_ct)
+    data$pos[i]="MID"
+  if(max(mid_ct,def_ct, atk_ct, gk_ct) == def_ct)
+    data$pos[i]="DEF"
+  if(gk_ct == 9)
+    data$pos[i]="GK"
+}
+data$pos <- as.factor(data$pos)
+
+```
+
+
+```{r, include = FALSE}
+#Remove data[, 43:68] ... position values  (REMOVED "Value" as well.)
+
+
+data=select(data, c(-Value, -CAM,-CF, -LAM, -LF, -LS, -RAM, -RF, -RS, -ST,-CB, -CM, -LCM, -LM, -RCM, -RM, -LW, -RW,-CDM, -LB, -LCB, -LDM, -RB, -RCB, -RDM, -LWB, -RWB))
+```
+
+```{r, include = FALSE}
+#Split Train and Test Data
+
+
+
+## 75% of the sample size
+smp_size <- floor(0.75 * nrow(data))
+
+set.seed(61820)
+train_ind <- sample(seq_len(nrow(data)), size = smp_size)
+
+train <- data[train_ind, ]
+test <- data[-train_ind, ]
+```
+
+```{r, include = FALSE}
+#Num of Obs for data/train/test
+
+
+
+tapply( data$pos, data$pos, length)
+tapply( train$pos, train$pos, length)
+tapply( test$pos, test$pos, length)
+
+```
+
+```{r, include = FALSE}
+#divide data into four sub-data
+
+
+
+train_off=train[train$pos == "OFF",]
+train_mid=train[train$pos == "MID",]
+train_def=train[train$pos == "DEF",]
+train_gk=train[train$pos == "GK",]
+
+
+data_off=data[data$pos == "OFF",]
+data_mid=data[data$pos == "MID",]
+data_def=data[data$pos == "DEF",]
+data_gk=data[data$pos == "GK",]
+
+test_off=test[test$pos == "OFF",]
+test_mid=test[test$pos == "MID",]
+test_def=test[test$pos == "DEF",]
+test_gk=test[test$pos == "GK",]
+
+```
+
+
+
+
+```{r, include = FALSE}
+#pract
+
+
+
+plot(train_def$Wage~train_def$Overall)
+plot(train_off$Wage~train_off$Overall)
+#offense players get paid more!
+```
+
+
+```{r, include = FALSE}
+#Linear Reg.
+
+
+
+fit1=lm(Overall ~ Age+Wage+Acceleration+Aggression+Agility+Balance+Ball.control+Composure+Crossing+Curve+Dribbling+Finishing+Free.kick.accuracy+GK.diving+GK.handling+GK.kicking+GK.positioning+GK.reflexes+Heading.accuracy+Interceptions+Jumping+Long.passing+Long.shots+Marking+Penalties+Positioning+Reactions+Short.passing+Shot.power+Sliding.tackle+Sprint.speed+Stamina+Standing.tackle+Strength+Vision+Volleys, data = train_off)
+
+```
+
+```{r, include = FALSE}
+#AIC and stepwise selection
+
+
+
+AIC(fit1)
+# step(fit1, trace = 0, direction = "both")
+```
+
+
+```{r, include = FALSE}
+#After Stepwise Selection
+
+
+
+fit2=lm(formula = Overall ~ Age + Wage + Acceleration + Aggression + 
+    Balance + Ball.control + Composure + Dribbling + Finishing + 
+    Free.kick.accuracy + GK.reflexes + Heading.accuracy + Jumping + 
+    Long.passing + Long.shots + Marking + Penalties + Positioning + 
+    Reactions + Short.passing + Shot.power + Sprint.speed + Standing.tackle + 
+    Strength + Vision, data = train_off)
+AIC(fit2)
+```
+
+```{r, include = FALSE}
+BIC(fit1)
+BIC(fit2)
+summary(fit2)
+```
+
+```{r, include = FALSE}
+fit3= lm(Overall ~ Age + Wage + Acceleration + Aggression + 
+    Balance + Ball.control + Composure + Dribbling + Finishing + 
+    Free.kick.accuracy + GK.reflexes + Heading.accuracy + Jumping + 
+    Long.passing + Long.shots + Marking + Penalties + Positioning + 
+    Reactions + Short.passing + Shot.power + Sprint.speed + 
+    Strength + Vision, data = train_off)
+summary(fit3)
+```
+
+
+
+```{r, include = FALSE}
+#Ridge Regression 
+#Offender
+
+
+library(MASS)
+
+fit_off <- lm.ridge(Overall ~ Acceleration + Aggression + Agility + Balance + Ball.control + Composure + Crossing + Curve + Dribbling + Finishing + Free.kick.accuracy + GK.diving + GK.handling + GK.kicking + GK.positioning + GK.reflexes + Heading.accuracy + Interceptions + Jumping + Long.passing + Long.shots + Marking + Penalties + Positioning + Reactions + Short.passing + Shot.power + Sliding.tackle + Sprint.speed + Stamina + Standing.tackle + Strength + Vision + Volleys, data_off, lambda=seq(0,100,by=0.1))
+
+fit_off$lambda[which.min(fit_off$GCV)]
+
+round(coef(fit_off)[which.min(fit_off$GCV), ], 4)
+
+matplot(coef(fit_off)[, -1], type = "l", xlab = "Lambda", ylab = "Coefficients")
+text(rep(50, 8), coef(fit_off)[1,-1], colnames(data_off))
+
+# use GCV to select the best lambda
+plot(fit_off$lambda[1:500], fit_off$GCV[1:500], type = "l", col = "darkorange", ylab = "GCV", xlab = "Lambda", lwd = 3)
+```
+
+```{r, include = FALSE}
+#Midfielder
+
+
+
+fit_mid <- lm.ridge(Overall ~ Acceleration + Aggression + Agility + Balance + Ball.control + Composure + Crossing + Curve + Dribbling + Finishing + Free.kick.accuracy + GK.diving + GK.handling + GK.kicking + GK.positioning + GK.reflexes + Heading.accuracy + Interceptions + Jumping + Long.passing + Long.shots + Marking + Penalties + Positioning + Reactions + Short.passing + Shot.power + Sliding.tackle + Sprint.speed + Stamina + Standing.tackle + Strength + Vision + Volleys, data_mid, lambda=seq(0,100,by=0.1))
+
+fit_mid$lambda[which.min(fit_mid$GCV)]
+
+round(coef(fit_mid)[which.min(fit_mid$GCV), ], 4)
+
+matplot(coef(fit_mid)[, -1], type = "l", xlab = "Lambda", ylab = "Coefficients")
+text(rep(50, 8), coef(fit_mid)[1,-1], colnames(data_mid))
+
+# use GCV to select the best lambda
+plot(fit_mid$lambda[1:500], fit_mid$GCV[1:500], type = "l", col = "darkorange", ylab = "GCV", xlab = "Lambda", lwd = 3)
+```
+
+```{r, include = FALSE}
+#Defender
+
+
+
+fit_def <- lm.ridge(Overall ~ Acceleration + Aggression + Agility + Balance + Ball.control + Composure + Crossing + Curve + Dribbling + Finishing + Free.kick.accuracy + GK.diving + GK.handling + GK.kicking + GK.positioning + GK.reflexes + Heading.accuracy + Interceptions + Jumping + Long.passing + Long.shots + Marking + Penalties + Positioning + Reactions + Short.passing + Shot.power + Sliding.tackle + Sprint.speed + Stamina + Standing.tackle + Strength + Vision + Volleys, data_def, lambda=seq(0,100,by=0.1))
+
+fit_def$lambda[which.min(fit_def$GCV)]
+
+round(coef(fit_def)[which.min(fit_def$GCV), ], 4)
+
+matplot(coef(fit_def)[, -1], type = "l", xlab = "Lambda", ylab = "Coefficients")
+text(rep(50, 8), coef(fit_def)[1,-1], colnames(data_def))
+
+# use GCV to select the best lambda
+plot(fit_def$lambda[1:500], fit_def$GCV[1:500], type = "l", col = "darkorange", ylab = "GCV", xlab = "Lambda", lwd = 3)
+```
+
+```{r, include = FALSE}
+#Goalkeeper
+
+
+
+fit_gk <- lm.ridge(Overall ~ Acceleration + Aggression + Agility + Balance + Ball.control + Composure + Crossing + Curve + Dribbling + Finishing + Free.kick.accuracy + GK.diving + GK.handling + GK.kicking + GK.positioning + GK.reflexes + Heading.accuracy + Interceptions + Jumping + Long.passing + Long.shots + Marking + Penalties + Positioning + Reactions + Short.passing + Shot.power + Sliding.tackle + Sprint.speed + Stamina + Standing.tackle + Strength + Vision + Volleys, data_gk, lambda=seq(0,100,by=0.1))
+
+fit_gk$lambda[which.min(fit_gk$GCV)]
+
+round(coef(fit_gk)[which.min(fit_gk$GCV), ], 4)
+
+matplot(coef(fit_gk)[, -1], type = "l", xlab = "Lambda", ylab = "Coefficients")
+text(rep(50, 8), coef(fit_gk)[1,-1], colnames(data_gk))
+
+# use GCV to select the best lambda
+plot(fit_gk$lambda[1:500], fit_gk$GCV[1:500], type = "l", col = "darkorange", ylab = "GCV", xlab = "Lambda", lwd = 3)
+```
+
+
+```{r, include = FALSE}
+#Lasso regression
+#Offender
+
+
+library(glmnet)
+fit2_off<-cv.glmnet(data.matrix(data_off[,9:42]), data_off$Overall, nfolds = 10)
+coef(fit2_off, s = "lambda.min")
+coef(fit2_off, s = "lambda.1se")
+plot(fit2_off)
+plot(fit2_off$glmnet.fit, "lambda")
+```
+
+
+```{r, include = FALSE}
+#Midfielder
+
+
+fit2_mid<-cv.glmnet(data.matrix(data_mid[,9:42]), data_mid$Overall, nfolds = 10)
+coef(fit2_mid, s = "lambda.min")
+coef(fit2_mid, s = "lambda.1se")
+plot(fit2_mid)
+plot(fit2_mid$glmnet.fit, "lambda")
+```
+
+```{r, include = FALSE}
+#Defender
+
+
+
+fit2_def<-cv.glmnet(data.matrix(data_def[,9:42]), data_def$Overall, nfolds = 10)
+coef(fit2_def, s = "lambda.min")
+coef(fit2_def, s = "lambda.1se")
+plot(fit2_def)
+plot(fit2_def$glmnet.fit, "lambda")
+```
+
+```{r, include = FALSE}
+#Goalkeeper
+
+
+
+fit2_gk<-cv.glmnet(data.matrix(data_gk[,9:42]), data_gk$Overall, nfolds = 10)
+coef(fit2_gk, s = "lambda.min")
+coef(fit2_gk, s = "lambda.1se")
+plot(fit2_gk)
+plot(fit2_gk$glmnet.fit, "lambda")
+```
+
+
+
+
+```{r, include = FALSE}
+#train_xxx_practice for Heatmap
+
+# 
+# 
+# library(heatmaply)
+train_def_practice=train_def
+train_def_practice=train_def_practice[,c(-1,-3,-6)]
+train_def_practice=train_def_practice[,1:38]
+rownames(train_def_practice) <- make.names(train_def[,1], unique = TRUE)
+train_def_practice <- train_def_practice[order(train_def_practice$Overall, decreasing = TRUE),]
+train_def_practice=train_def_practice[1:10,]
+# heatmaply(as.matrix(train_mid_practice), Rowv = NA, Colv = NA, scale = "column")
+
+train_off_practice=train_off
+train_off_practice=train_off_practice[,c(-1,-3,-6)]
+train_off_practice=train_off_practice[,1:38]
+rownames(train_off_practice) <- make.names(train_off[,1], unique = TRUE)
+train_off_practice <- train_off_practice[order(train_off_practice$Overall, decreasing = TRUE),]
+train_off_practice=train_off_practice[1:10,]
+# heatmaply(as.matrix(train_mid_practice), Rowv = NA, Colv = NA, scale = "column")
+
+train_mid_practice=train_mid
+train_mid_practice=train_mid_practice[,c(-1,-3,-6)]
+train_mid_practice=train_mid_practice[,1:38]
+rownames(train_mid_practice) <- make.names(train_mid[,1], unique = TRUE)
+train_mid_practice <- train_mid_practice[order(train_mid_practice$Overall, decreasing = TRUE),]
+train_mid_practice=train_mid_practice[1:10,]
+# heatmaply(as.matrix(train_mid_practice), Rowv = NA, Colv = NA, scale = "column")
+
+train_gk_practice=train_gk
+train_gk_practice=train_gk_practice[,c(-1,-3,-6)]
+train_gk_practice=train_gk_practice[,1:38]
+rownames(train_gk_practice) <- make.names(train_gk[,1], unique = TRUE)
+train_gk_practice <- train_gk_practice[order(train_gk_practice$Overall, decreasing = TRUE),]
+train_gk_practice=train_gk_practice[1:10,]
+# heatmaply(as.matrix(train_mid_practice), Rowv = NA, Colv = NA, scale = "column")
+
+#combine data frames
+train_heatmap=rbind(train_off_practice, train_mid_practice)
+train_heatmap=rbind(train_heatmap, train_def_practice)
+train_heatmap=rbind(train_heatmap, train_gk_practice)
+
+
+#I merged top 10 players from each position into a dataset and created a heatmap
+heatmap(as.matrix(train_heatmap), Rowv = NA, Colv = NA, scale = "column", revC = TRUE)
+
+#remove Wage from heatmap
+train_heatmap_no_wage=train_heatmap[,-4]
+heatmap(as.matrix(train_heatmap_no_wage), Rowv = NA, Colv = NA, revC = TRUE)
+
+
+```
+
+
+
+```{r, include = FALSE}
+library(pastecs)
+stat.desc(data[,c(-1,-3,-6,-42)], basic=F)
+stat.desc(data[,c(-1,-3,-6,-42)], desc=F)
+
+```
+
+
+
+
+```{r, include = FALSE}
+#============================================================================================================================
+#============================================================================================================================
+#============================================================================================================================
+```
+
+
+
+
+##Introduction
+&nbsp;&nbsp;&nbsp;&nbsp;  Inspired by the game and our interests in football, our team decided to use the FIFA 18 player dataset to perform various statistical analysis. Data was publicly available at Kaggle (https://www.kaggle.com/thec03u5/fifa-18-demo-player-dataset) with complete information of every player’s stats and attributes. This dataset provides information for over 17,000 players in FIFA database. It includes various traits of each player such as name, age, nationality, preferred positions, acceleration, ball control, dribbling, reaction, and 67 other variables. With the ever increasing popularity of football, FIFA series gained their reputation as well. It established solid number of fans and gamers, and each sequel that is released annually improved previous editions with new features overall and updated player stats. We wanted to see how closely these in-game player stats match player values in real life, and how the overall ratings in FIFA 18 are scored based on individual stats. This paper aims to lay foundation on football player stats analysis with the following objectives:  
+
+- Categorization of positions based on examining scores of player stats and performing clustering analysis for exploratory data analysis to find patterns and grouping in data.  
+
+- Player stats modeling through testing several regression analysis (including linear regression, Ridge/Lasso Regression, and regression spline)  to find the best fitting model.  
+
+- Explore the use of such statistics in our dataset and discover new findings and/or prediction, such as prediction of FIFA FIFPro World XI, for players in FIFA 18.  
+
+&nbsp;&nbsp;&nbsp;&nbsp;  This paper is structured with 5 subdivided sections. Section 2 presents a review of the literature and clarifies the intended contributions and references of this paper. Section 3 introduces the summary statistics and data visualization of our FIFA 18 dataset. Section 4 presents our proposed analysis and statistical learning tasks. Section 5 concludes our study with summary of scientific findings, and discusses any potential improvements in our analysis.
+
+##Literature Review
+&nbsp;&nbsp;&nbsp;&nbsp;  World Cup, Olympics, and most importantly, tournaments and leagues among professional football clubs draw attention of many football fans and public audiences worldwide. Derived from the name of Fédération Internationale de Football Association(FIFA), which is an international sports organization that governs over majority of soccer events and occasions worldwide, Electronic Arts(EA Sports) has been releasing the well-known FIFA series for consoles/PC annually since 1994 to meet the interests and demands of football fans, creating a whole new genre in game industry. One of the reasons this series is loved by so many football fans worldwide is that each sequel keeps track of the most up-to-date player stats and team stats every year and closely reflects this data into their game engine, allowing gamers and soccer fans to have the very realistic sensation of controlling players and managing professional clubs in the game.  
+  
+&nbsp;&nbsp;&nbsp;&nbsp;  FIFA 18, the edition used in our analysis, was released worldwide on 29 September 2017 for Microsoft Windows, PlayStation 3, PlayStation 4, Xbox 360, Xbox One and Nintendo Switch, and it is the 25th instalment in the FIFA series with Cristiano Ronaldo as cover player. The game features 52 fully licensed stadiums from 12 countries, including new stadiums, plus 30 generic fields for a total of 82. All 20 Premier League stadium are represented in the series. Most importantly, it has all the updated player and club information up to this year’s play records and match results. The player rating data always becomes a hot topic within gaming communities shortly after the release of each game in the series. It contains over 700 clubs and around 18,000 players, summing up to millions of data points in total that makes up this amazing game.  
+  
+&nbsp;&nbsp;&nbsp;&nbsp;	As part of our objectives, we included the prediction of FIFA FIFPro World XI using the in-game player stats data. FIFA FIFPro World XI is the best eleven football players of the year. Unlike the Ballon d'Or prize, which is voted for by national team captains and coaches, as well as select journalists, the FIFPro XI is made up solely of names chosen by over 50,000 professional footballers from a total of 70 countries. A list of 55 players, consisting of 5 goalkeepers, 20 defenders, 15 midfielders, and 15 forwards are nominated initially. For the finalists, voters must select 1 goalkeeper, 4 defenders, 3 midfielders and 3 forwards. FIFPro only makes a distinction between the four lines, not between each position, and it simply asks for the best goalkeeper, 4 best defenders, 3 best midfielders and 3 best attackers.
+
+##Summary Statistics
+&nbsp;&nbsp;&nbsp;&nbsp;  Before producing any summary report and proceeding further on our analysis, data cleaning was initially performed. We went through all 75 variables in the raw data, and chose variables that are not related or needed in our analysis. 
+  
+###Column Names
+
+```{r, echo = FALSE}
+colnames(raw)
+```
+&nbsp;&nbsp;&nbsp;&nbsp;  The ones we chose to remove are: *X(preset row number), Photo, Flag, Club.Logo, Special, ID, and Preferred.Positions.* Then, we had to make the formats of our variables constant. Some variables such as Wage had currency symbol along with numerical values causing it to be a factor variable instead of a numerical value. Also, some of the player attributes had minor updates for their scores. For example, a player named Malcom has a dribbling score of "84+1", and this caused the whole column to be non-numerical. To resolve this issue, we created a function called **numextract<- function(string){str_extract(string, "[[:digit:]]+")}** from *stringr* library to extract just the numbers, and made all columns into numerical values by using apply and as.numerical function. Next, we found out that there are missing values for some attributes, resulting in NA. These NA values were changed to 0 to avoid NA coercion error in R when performing functions specifically for numerical values. Lastly, we removed players with Wage==0 since they are marked as inactive players who either retired or are currently not playing in any club.
+
+
+```{r, echo = FALSE}
+library(pastecs)
+stat.desc(data[,c(2,4,5,7,8)], basic=F)
+stat.desc(data[,c(2,4,5,7,8)], desc=F)
+
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;  From looking at the summary statistics, we can see that, for example, the average age is 25.14454146, and the variance of Overall score is 48.83165959. Also, we were able to confirm that we have equal number of observations for all columns and that there is no NAs in our dataset that may cause problems in our analysis.  
+* (We only displayed 5 variables in the above statistics to prevent wasting spaces. The whole summary statistics is shown in Appendix.) **(APX(1))**  
+
+&nbsp;&nbsp;&nbsp;&nbsp;  One last thing to do before performing regression analysis to find the best fitting model for our data was partitioning our data into four different positions: Forwards(OFF), Midfielders(MID), Defense(DEF), and Goal Keepers(GK). Since there were 26 specific position data such as *CAM*, *RF*, and *ST* included in our original dataset, we used these variables to determine the four fundamental positions as such:  
+
+- Forwards: *CF,  LF, LS,  RF, RS, ST,  LW, RW*  
+
+- MID: *CM, LCM, LM, RCM, RM, CAM, LAM, RAM, CDM, LDM, RDM*  
+
+- DEF: *LB, LCB,  RB, RCB, LWB, RWB, CB*  
+
+- GK: Players with 0 values for specific sub-positions.  
+
+Using these guidelines we divided our positions, and finally split the data into train and test data in ratio of 75 Train:25 Test. The number of observations in each set is described below in the tables.  
+
+###Full Data
+```{r, echo=FALSE}
+tapply( data$pos, data$pos, length)
+```
+
+###Train Data
+```{r, echo=FALSE}
+tapply( train$pos, train$pos, length)
+```
+
+
+###Test Data
+```{r, echo=FALSE}
+tapply( test$pos, test$pos, length)
+```
+```{r, echo=FALSE}
+par(mfrow=c(3,1),mar=c(2,2,2,1)) 
+plot(data$pos, xlab = "Positions", main ="Number of Players in Each Position (Full)", ylab="Frequency", col ="salmon")
+plot(train$pos, xlab = "Positions", main ="Number of Players in Each Position (Train)", ylab="Frequency", col ="dodgerblue")
+plot(test$pos, xlab = "Positions", main ="Number of Players in Each Position (Test)", ylab="Frequency ", col ="forestgreen")
+```
+  
+* Both from the tables and plots, we can visually see that the train and test data were split evenly in ratio. For full data before splitting, there are  6268 DEF, 1987 GK, 5206 MID, and 4272 OFF positions. After splitting, train data has 4684 DEF, 1515 GK, 3903  MID, and 3197 OFF, and test data has 1584 DEF, 472 GK, 1303 MID, 1075 OFF positions. We will be using train data to perform various analysis in this paper to find the best fitting model, and the chosen model will later be compared to the test data to see if the model truly fits our data well for both train and test data. Then, we will use this model with some of the player stats to predict the FIFA FIFPro World XI. 
+    
+```{r, include=FALSE}
+library(scales)
+```
+
+
+```{r, echo=FALSE}
+
+plot(train_gk$Wage~train_gk$Overall, main="Wage of GK vs Forward Positions based on Overall Score", xlab="Overall Score", ylab="Wage (K)", col=alpha("salmon",0.4), pch=20, ylim=c(0,500))
+points(train_off$Wage~train_off$Overall, col=alpha("dodgerblue",0.4), pch=20)
+```
+  
+* This is a visualization to show, for example, if there are any difference in the wage based on positions of football players. For the comparison, two categories, goal keeper and forward positions, were drawn into one plot with different colors. As a result, we were able to find out that for players with relatively low overall Scores, there may not be a big difference in wages they receive. However, for players with high overall scores, more players in forward positions seem to get higher wages than defense position players.  
+  
+
+
+```{r, echo = FALSE}
+#train_xxx_practice for Heatmap
+
+# 
+# 
+# library(heatmaply)
+train_def_practice=train_def
+train_def_practice=train_def_practice[,c(-1,-3,-6)]
+train_def_practice=train_def_practice[,1:38]
+rownames(train_def_practice) <- make.names(train_def[,1], unique = TRUE)
+train_def_practice <- train_def_practice[order(train_def_practice$Overall, decreasing = TRUE),]
+train_def_practice=train_def_practice[1:10,]
+# heatmaply(as.matrix(train_mid_practice), Rowv = NA, Colv = NA, scale = "column")
+
+train_off_practice=train_off
+train_off_practice=train_off_practice[,c(-1,-3,-6)]
+train_off_practice=train_off_practice[,1:38]
+rownames(train_off_practice) <- make.names(train_off[,1], unique = TRUE)
+train_off_practice <- train_off_practice[order(train_off_practice$Overall, decreasing = TRUE),]
+train_off_practice=train_off_practice[1:10,]
+# heatmaply(as.matrix(train_mid_practice), Rowv = NA, Colv = NA, scale = "column")
+
+train_mid_practice=train_mid
+train_mid_practice=train_mid_practice[,c(-1,-3,-6)]
+train_mid_practice=train_mid_practice[,1:38]
+rownames(train_mid_practice) <- make.names(train_mid[,1], unique = TRUE)
+train_mid_practice <- train_mid_practice[order(train_mid_practice$Overall, decreasing = TRUE),]
+train_mid_practice=train_mid_practice[1:10,]
+# heatmaply(as.matrix(train_mid_practice), Rowv = NA, Colv = NA, scale = "column")
+
+train_gk_practice=train_gk
+train_gk_practice=train_gk_practice[,c(-1,-3,-6)]
+train_gk_practice=train_gk_practice[,1:38]
+rownames(train_gk_practice) <- make.names(train_gk[,1], unique = TRUE)
+train_gk_practice <- train_gk_practice[order(train_gk_practice$Overall, decreasing = TRUE),]
+train_gk_practice=train_gk_practice[1:10,]
+# heatmaply(as.matrix(train_mid_practice), Rowv = NA, Colv = NA, scale = "column")
+
+#combine data frames
+train_heatmap=rbind(train_off_practice, train_mid_practice)
+train_heatmap=rbind(train_heatmap, train_def_practice)
+train_heatmap=rbind(train_heatmap, train_gk_practice)
+
+
+#I merged top 10 players from each position into a dataset and created a heatmap
+heatmap(as.matrix(train_heatmap), Rowv = NA, Colv = NA, scale = "column", revC = TRUE, main="Heatmap of Player Stats")
+
+
+```
+  
+* Lastly, we wanted to visually check what player stats are more important and valued for each of the four positions we divided. In order to create a clear data visualization, top 10 players with highest overall scores from each position were selected. Then, these 40 players were put into Heatmap function, which allowed us to clearly see the differences in scores for each attribute: In the y-axis, from the top, players are ordered as forward, midfielder, defense, and goal keeper. If you see closely into the heatmap, there are separation by colors that is quite visible for each attribute of each position. These are just few of the information we could visibly obtain from the heatmap:   
+1. Forward positions, including Cristiano Ronaldo and Lionel Messi, have relatively high Overall scores, Acceleration, Balance, Agility, and Penalties.   
+2. Midfielders, such as Pogba and David Silva, have better Interceptions, Long-passing, Aggression, and Sliding Tackles than forward positions while sharing similar range of scores for other stats.  
+3. For defend players like Boateng and Marcelo, they have superior stats in Aggression, Interceptions, Sliding Tackle, Standing Tackle, and Strength than any other positions.  
+4. Goal keepers generally have low scores in most of the stats compared to players in other positions, but they have a few criteria they are specialized in. All of the goal keepers have exceptional GK.diving, GK.handling, GK.kicking, GK.positioning, and GK.reflexes as shown in Heatmap as yellow rectangle area at lower part of the map.
+* (Hierarchical clustering option is added in **APX (2)**)
+
+&nbsp;&nbsp;&nbsp;&nbsp; After exploring our data with various examples and visualizations, we confirmed the data describes its values very well for our purposes. With these cleaned data that are divided into four different positions and then into train and test data, the data seemed adequate to perform statistical analysis.
+
+<br>
+<br>
+<br>
+
+##Proposed Analysis
+
+###Linear Regression
+&nbsp;&nbsp;&nbsp;&nbsp;  In order to achieve our goal of finding the best fitting model, we first tried to fit linear regression to our model as it is the most fundamental regression used in various fields to model data. We began with fitting all variables into a linear model using lm() function to see how it generally fits our data in summary. There were number of variables that are larger than our 0.05 cut off value, therefore not significant. To find a model that represents our data better, we performed variable selection using stepwise selection via step() function, then we compared the AIC and BIC values for test goodness of fit compared to the initial model.  
+&nbsp;&nbsp;&nbsp;&nbsp;  For linear regression analysis, only train data for forward position was used to reduce the time it takes to process large models. Although it is highly unlikely that linear regression will be the best fitting model, if it turns out that it is indeed the best model, we could later try to fit this model to three other positions as they share the same variables and relatively similar regressions originated from the same data.
+
+```{r}
+#Linear Reg.
+fit1=lm(Overall ~ Age+Wage+Acceleration+Aggression+Agility+Balance+Ball.control+Composure+Crossing+Curve+Dribbling+Finishing+Free.kick.accuracy+GK.diving+GK.handling+GK.kicking+GK.positioning+GK.reflexes+Heading.accuracy+Interceptions+Jumping+Long.passing+Long.shots+Marking+Penalties+Positioning+Reactions+Short.passing+Shot.power+Sliding.tackle+Sprint.speed+Stamina+Standing.tackle+Strength+Vision+Volleys, data = train_off)
+summary(fit1)
+```
+
+```{r}
+#Stepwise Selection
+step(fit1, trace = 0, direction = "both")
+```
+
+
+```{r, echo=FALSE}
+fit3= lm(Overall ~ Wage + Acceleration + Aggression + 
+    Balance + Ball.control + Composure + Dribbling + Finishing + 
+    Heading.accuracy + Jumping + 
+    Long.shots + Marking + Positioning + 
+    Reactions + Short.passing + Shot.power + Sprint.speed + 
+    Strength + Vision, data = train_off)
+
+fit4= lm(Overall ~ Wage + Acceleration + Aggression + 
+    Balance + Ball.control + Composure + Dribbling + Finishing + 
+    Heading.accuracy + Jumping + 
+    Long.shots + Marking + Positioning + 
+    Reactions + Short.passing + Shot.power + Sprint.speed + 
+    Strength + Vision, data = train_mid)
+
+fit5= lm(Overall ~ Wage + Acceleration + Aggression + 
+    Balance + Ball.control + Composure + Dribbling + Finishing + 
+    Heading.accuracy + Jumping + 
+    Long.shots + Marking + Positioning + 
+    Reactions + Short.passing + Shot.power + Sprint.speed + 
+    Strength + Vision, data = train_def)
+
+fit6= lm(Overall ~ Wage + Acceleration + Aggression + 
+    Balance + Ball.control + Composure + Dribbling + Finishing + 
+    Heading.accuracy + Jumping + 
+    Long.shots + Marking + Positioning + 
+    Reactions + Short.passing + Shot.power + Sprint.speed + 
+    Strength + Vision, data = train_gk)
+
+summary(fit3)
+
+```
+```{r}
+BIC(fit1)
+BIC(fit3)
+```
+  
+&nbsp;&nbsp;&nbsp;&nbsp;  After performing variable selection via stepwise selection to find the smallest but the most effective model, we looked into each variable and left only the ones that are significant, or less than alpha=0.05. After confirming the signficance of each variable in our fit3 model, we compared the BIC values of the initial fit1 model and fit3. Since we pursue the goal of minimizing BIC value in this specific selection, we can say that fit3 model is a better fitting model than fit1, even though there was only slight reduction in BIC values. However, we still face a major issue when doing a lack of fit test. Observing the F statistics of our model, we discovered that the value is exceptionally large with the value of 6247 with p-value of < 2.2e-16. This only signifies that there is significant lack of fit in our model. To furthur explore this model, we generated diagnostic plots to identify any peculiarities.
+
+```{r}
+par(mfrow=c(2,2))
+plot(fit3)
+```
+
+```{r, echo=FALSE}
+mse <- function(sm) 
+    mean(sm$residuals^2)
+
+mse(fit3)
+
+```
+
+
+&nbsp;&nbsp;&nbsp;&nbsp;  Seeing the four diagnostic plots displayed, our model does not seem that bad after all. The Residuals vs Fitted plot show that the model meets the regression assumptions well, Normal Q-Q plot shows normality except both ends, Scale-Location plot displays roughly flat line of curve. However, the Residuals vs Leverage plot shows two influential points, 1 and 2, that seems to be over Cook's distance and located far from cluster of points. These points can be removed to stabilize our model, but first we will go through other regressions to see if we can have a better fitting model.  
+
+
+
+
+###Ridge Regression 
+
+&nbsp;&nbsp;&nbsp;&nbsp;  Ridge regression is a regression method which adds a penalty by the tuning parameter called $\lambda$(lambda) that is chosen by cross-validation. The overall concept of ridge regression is making the fit small by minimizing the residual sum of squares and adding the shrinkage penalty. The shrinkage penalty computed by $\lambda$ times the sum of squares of the coefficients, so coefficients that become large are the ones that get penalized. As the value of $\lambda$ increases, the bias increases and the variance decreases. Now, let's see how the model of each position changes by ridge regression.
+
+###Coefficient estimate by Ridge Regression
+```{r, echo=FALSE}
+library(MASS)
+
+grid <- seq(0,100,by=0.1)
+
+ridge.off <- lm.ridge(Overall ~ Acceleration + Aggression + Agility + Balance + Ball.control + Composure + Crossing + Curve + Dribbling + Finishing + Free.kick.accuracy + GK.diving + GK.handling + GK.kicking + GK.positioning + GK.reflexes + Heading.accuracy + Interceptions + Jumping + Long.passing + Long.shots + Marking + Penalties + Positioning + Reactions + Short.passing + Shot.power + Sliding.tackle + Sprint.speed + Stamina + Standing.tackle + Strength + Vision + Volleys, train_off, lambda=grid)
+best.lambda.off <- ridge.off$lambda[which.min(ridge.off$GCV)]
+coef.ridge.off <- as.matrix(round(coef(ridge.off)[which.min(ridge.off$GCV), ], 4))
+
+ridge.mid <- lm.ridge(Overall ~ Acceleration + Aggression + Agility + Balance + Ball.control + Composure + Crossing + Curve + Dribbling + Finishing + Free.kick.accuracy + GK.diving + GK.handling + GK.kicking + GK.positioning + GK.reflexes + Heading.accuracy + Interceptions + Jumping + Long.passing + Long.shots + Marking + Penalties + Positioning + Reactions + Short.passing + Shot.power + Sliding.tackle + Sprint.speed + Stamina + Standing.tackle + Strength + Vision + Volleys, data_mid, lambda=grid)
+best.lambda.mid <- ridge.mid$lambda[which.min(ridge.mid$GCV)]
+coef.ridge.mid <- as.matrix(round(coef(ridge.mid)[which.min(ridge.mid$GCV), ], 4))
+
+ridge.def <- lm.ridge(Overall ~ Acceleration + Aggression + Agility + Balance + Ball.control + Composure + Crossing + Curve + Dribbling + Finishing + Free.kick.accuracy + GK.diving + GK.handling + GK.kicking + GK.positioning + GK.reflexes + Heading.accuracy + Interceptions + Jumping + Long.passing + Long.shots + Marking + Penalties + Positioning + Reactions + Short.passing + Shot.power + Sliding.tackle + Sprint.speed + Stamina + Standing.tackle + Strength + Vision + Volleys, data_def, lambda=grid)
+best.lambda.def <- ridge.def$lambda[which.min(ridge.def$GCV)]
+coef.ridge.def <- as.matrix(round(coef(ridge.def)[which.min(ridge.def$GCV), ], 4))
+
+ridge.gk <- lm.ridge(Overall ~ Acceleration + Aggression + Agility + Balance + Ball.control + Composure + Crossing + Curve + Dribbling + Finishing + Free.kick.accuracy + GK.diving + GK.handling + GK.kicking + GK.positioning + GK.reflexes + Heading.accuracy + Interceptions + Jumping + Long.passing + Long.shots + Marking + Penalties + Positioning + Reactions + Short.passing + Shot.power + Sliding.tackle + Sprint.speed + Stamina + Standing.tackle + Strength + Vision + Volleys, data_gk, lambda=grid)
+best.lambda.gk <- ridge.gk$lambda[which.min(ridge.gk$GCV)]
+coef.ridge.gk <- as.matrix(round(coef(ridge.gk)[which.min(ridge.gk$GCV), ], 4))
+
+cbind(best.lambda.off, best.lambda.mid, best.lambda.def, best.lambda.gk)
+
+coef.ridge.table <- cbind(coef.ridge.off, coef.ridge.mid, coef.ridge.def, coef.ridge.gk)
+colnames(coef.ridge.table) <- c("Forward", "Midfielder", "Defender", "Goalkeeper")
+print(coef.ridge.table)
+
+#par(mfrow = c(1, 2))
+#matplot(coef(ridge.off)[, -1], type = "l", main = "Ridge Coefficients - Offender", xlab = "Lambda", ylab = "Coefficients")
+#text(rep(50, 8), coef(ridge.off)[1,-1], colnames(data_off))
+
+#plot(ridge.off$lambda[1:500], ridge.off$GCV[1:500], type = "l", main ="Best Lambda - Offender", col = "red", ylab = "GCV", xlab = "Lambda", lwd = 3)
+
+```
+
+
+**Conclusion**: The best $\lambda$ is the value that produces the smallest GCV(generalized cross-validation). The coefficient of the variables have been computed using the best $\lambda$ value and the output shows that the variables that are important to estimate the Overall for each position tend to have a higher coefficient value than the others. However, the problem of ridge regression is that it does not exclude the non-significant variables. Instead, it leaves it with an extremely small coefficient value. 
+
+###LASSO regression
+
+&nbsp;&nbsp;&nbsp;&nbsp;  LASSO regression is a regression method which the penalty is computed by the sum of the absolute values of the coefficients. It shrinks the coefficient values to zero which is similar to ridge regression. However, the good part of LASSO regression is that unlike ridge regression, as the $\lambda$ values increases, it excludes the variables that the coefficients become zero which leaves only the necessary variables to the final model. Therefore, LASSO regression can be described as a method that can perform both shrinkage and variable selection. Now, let's see how LASSO shrinks the model for our data and which variables are left on the final model for each position.
+
+###Variable selection by LASSO
+```{r, echo=FALSE}
+library(glmnet)
+lasso.off <- cv.glmnet(data.matrix(data_off[,8:41]), data_off$Overall, nfolds = 10)
+#coef(lasso.def, s = "lambda.min")
+coef.off <- round(coef(lasso.off, s = "lambda.1se"), 4)
+
+lasso.mid <- cv.glmnet(data.matrix(data_mid[,8:41]), data_mid$Overall, nfolds = 10)
+#coef(lasso.def, s = "lambda.min")
+coef.mid <- round(coef(lasso.mid, s = "lambda.1se"), 4)
+
+lasso.def <- cv.glmnet(data.matrix(data_def[,8:41]), data_def$Overall, nfolds = 10)
+#coef(lasso.def, s = "lambda.min")
+coef.def <- round(coef(lasso.def, s = "lambda.1se"), 4)
+
+lasso.gk <- cv.glmnet(data.matrix(data_gk[,8:41]), data_gk$Overall, nfolds = 10)
+#coef(lasso.gk, s = "lambda.min")
+coef.gk <- round(coef(lasso.gk, s = "lambda.1se"), 4)
+
+lasso.coef <- cbind(coef.off,coef.mid,coef.def,coef.gk)
+colnames(lasso.coef)<-c("Forward","Midfielder","Defender","Goalkeeper")
+print(lasso.coef)
+```
+
+&nbsp;&nbsp;&nbsp;&nbsp;  As we expected, only the important variables for the Overall of each position are left over. We can easily notice that the ouput is quite accurate by looking at the Goalkeeper column. All of the GK skill variables are left on the final model for the goalkeeper Overall and the only non-GK skill which is Reactions is also an important variable for the goalkeeper, because how fast they react to the ball coming is an essential part of their goalkeeping skill. 
+
+###MSE Comparison
+
+&nbsp;&nbsp;&nbsp;&nbsp;  Mean Squared Error(MSE), also known as the prediction error, is the mean squared difference between the estimated values and the actual values. The formula for the MSE is $MSE=\frac{1}{n}\sum_{i=1}^{n} (Y_i-\hat{Y_i})$. Lower MSE means that the prediction is more accurate, so we will now examine which regression among ridge and LASSO is better in estimating the Overall of the players for each position using the train and test data..
+
+###Forward Position
+```{r, echo=FALSE}
+set.seed(1234)
+x.train_off <- data.matrix(train_off[,8:41])
+x.test_off <- data.matrix(test_off[,8:41])
+y.train_off <- train_off$Overall
+y.test_off <- test_off$Overall
+
+ridge.off2 <- cv.glmnet(x.train_off, y.train_off, alpha=0)
+lasso.off2 <- cv.glmnet(x.train_off, y.train_off, alpha=1)
+
+yhat.ridge.off <- predict(ridge.off2, s=ridge.off2$lambda.1se, newx=x.test_off)
+yhat.lasso.off <- predict(lasso.off2, s=lasso.off2$lambda.1se, newx=x.test_off)
+
+mse.ridge.off <- mean((y.test_off - yhat.ridge.off)^2)
+mse.lasso.off <- mean((y.test_off - yhat.lasso.off)^2)
+
+x.train_mid <- data.matrix(train_mid[,8:41])
+x.test_mid <- data.matrix(test_mid[,8:41])
+y.train_mid <- train_mid$Overall
+y.test_mid <- test_mid$Overall
+
+ridge.mid2 <- cv.glmnet(x.train_mid, y.train_mid, alpha=0)
+lasso.mid2 <- cv.glmnet(x.train_mid, y.train_mid, alpha=1)
+
+yhat.ridge.mid <- predict(ridge.mid2, s=ridge.mid2$lambda.1se, newx=x.test_mid)
+yhat.lasso.mid <- predict(lasso.mid2, s=lasso.mid2$lambda.1se, newx=x.test_mid)
+
+mse.ridge.mid <- mean((y.test_mid - yhat.ridge.mid)^2)
+mse.lasso.mid <- mean((y.test_mid - yhat.lasso.mid)^2)
+
+x.train_def <- data.matrix(train_def[,8:41])
+x.test_def <- data.matrix(test_def[,8:41])
+y.train_def <- train_def$Overall
+y.test_def <- test_def$Overall
+
+ridge.def2 <- cv.glmnet(x.train_def, y.train_def, alpha=0)
+lasso.def2 <- cv.glmnet(x.train_def, y.train_def, alpha=1)
+
+yhat.ridge.def <- predict(ridge.def2, s=ridge.def2$lambda.1se, newx=x.test_def)
+yhat.lasso.def <- predict(lasso.def2, s=lasso.def2$lambda.1se, newx=x.test_def)
+
+mse.ridge.def <- mean((y.test_def - yhat.ridge.def)^2)
+mse.lasso.def <- mean((y.test_def - yhat.lasso.def)^2)
+
+x.train_gk <- data.matrix(train_gk[,8:41])
+x.test_gk <- data.matrix(test_gk[,8:41])
+y.train_gk <- train_gk$Overall
+y.test_gk <- test_gk$Overall
+
+ridge.gk2 <- cv.glmnet(x.train_gk, y.train_gk, alpha=0)
+lasso.gk2 <- cv.glmnet(x.train_gk, y.train_gk, alpha=1)
+
+par(mfrow = c(2, 2))
+
+plot(ridge.off2, main="Ridge - Forward")
+plot(ridge.off2$glmnet.fit, xvar="lambda", main="Ridge - Forward")
+plot(lasso.off2, main="LASSO - Forward")
+plot(lasso.off2$glmnet.fit, xvar="lambda", main="LASSO - Forward")
+
+# par(mfrow = c(2, 2))
+# 
+# plot(ridge.mid2, main="Ridge - Midfielder")
+# plot(ridge.mid2$glmnet.fit, xvar="lambda", main="Ridge - Midfielder")
+# plot(lasso.mid2, main="LASSO - Midfielder")
+# plot(lasso.mid2$glmnet.fit, xvar="lambda", main="LASSO - Midfielder")
+# 
+# par(mfrow = c(2, 2))
+# 
+# plot(ridge.def2, main="Ridge - Defender")
+# plot(ridge.def2$glmnet.fit, xvar="lambda", main="Ridge - Defender")
+# plot(lasso.def2, main="LASSO - Defender")
+# plot(lasso.def2$glmnet.fit, xvar="lambda", main="LASSO - Defender")
+# 
+# par(mfrow = c(2, 2))
+# 
+# plot(ridge.gk2, main="Ridge - Goalkeeper")
+# plot(ridge.gk2$glmnet.fit, xvar="lambda", main="Ridge - Goalkeeper")
+# plot(lasso.gk2, main="LASSO - Goalkeeper")
+# plot(lasso.gk2$glmnet.fit, xvar="lambda", main="LASSO - Goalkeeper")
+
+yhat.ridge.gk <- predict(ridge.gk2, s=ridge.gk2$lambda.1se, newx=x.test_gk)
+yhat.lasso.gk <- predict(lasso.gk2, s=lasso.gk2$lambda.1se, newx=x.test_gk)
+
+mse.ridge.gk <- mean((y.test_gk - yhat.ridge.gk)^2)
+mse.lasso.gk <- mean((y.test_gk - yhat.lasso.gk)^2)
+
+position <- c("Forward", "Midfielder", "Defender", "Goalkeeper")
+mse.ridge <- c(mse.ridge.off, mse.ridge.mid, mse.ridge.def, mse.ridge.gk)
+mse.lasso <- c(mse.lasso.off, mse.lasso.mid, mse.lasso.def, mse.lasso.gk)
+mse.table <- cbind(position, mse.ridge, mse.lasso)
+colnames(mse.table) <- c("Position", "Ridge MSE", "LASSO MSE")
+print(mse.table)
+```
+
+**Conclusion**: LASSO regression seems to be the better prediction method than ridge regression, because it had a smaller MSE in three out of the four predictions. However, considering that the difference between the MSE of the two regressions is very small, we can conclude that both regressions work fine for predicting the Overall of the soccer players.  
+
+* Only the MSE plots and Ridge/Lasso regression plots for forward position are displayed here. Plots for rest of the position will be inlcuded in **(APX (3))**
+
+###Natural Cubic Spline
+After fitting in the linear regression model by setting Overall variable as dependent variable, we found out which variables are significant predictors of Overall scores. Now, we are trying to see if Overall scores are relevant to the player’s Wage. We decided to utilize spline models since observations in Wage~Overall plot show the trend that Wage drastically increases for some players who have extremely high Overall scores over 90. Because what we are interested is the estimated wage for a new player who has higher Overall score than Cristiano Ronaldo and Lionel Messi, we figured out that we should avoid the extrapolation issue that might occur from B-Spline model. Therefore, we chose to fit Natural Cubic Spline model to Wage and Overall variables of the data.
+
+###Degrees of Freedom Selection for Natural Cubic Spline
+```{r, echo=FALSE}
+set.seed(61820)
+x_all <- data$Overall
+y_all <- data$Wage
+
+fit.ns_3 <- lm(Wage ~ ns(Overall, df = 3), data = data)
+fit.ns_4 <- lm(Wage ~ ns(Overall, df = 4), data = data)
+fit.ns_5 <- lm(Wage ~ ns(Overall, df = 5), data = data)
+fit.ns_6 <- lm(Wage ~ ns(Overall, df = 6), data = data)
+
+yhat.ns_3 <- predict(fit.ns_3, newx = x_all)
+yhat.ns_4 <- predict(fit.ns_4, newx = x_all)
+yhat.ns_5 <- predict(fit.ns_5, newx = x_all)
+yhat.ns_6 <- predict(fit.ns_6, newx = x_all)
+
+mse.ns_3 <- mean((y_all - yhat.ns_3)^2)
+mse.ns_4 <- mean((y_all - yhat.ns_4)^2)
+mse.ns_5 <- mean((y_all - yhat.ns_5)^2)
+mse.ns_6 <- mean((y_all - yhat.ns_6)^2)
+
+mse.ns_3
+mse.ns_4
+mse.ns_5
+mse.ns_6
+```
+After applying the data by using ns() function built in splines library, we found out the observable difference between natural cubic spline models with various degrees of freedom. We compared mean squared error for each model with degrees of freedom from 3 to 6 and found out that 6 degrees of freedom will be appropriate to fit natural cubic spline models to the training data divided into four different positions of soccer.
+
+###Natural Cubic Spline
+```{r, echo=FALSE}
+library(splines)
+
+fit.ns_all <- lm(Wage ~ ns(Overall, df = 6), data = data)
+fit.ns_off <- lm(Wage ~ ns(Overall, df = 6), data = data_off)
+fit.ns_mid <- lm(Wage ~ ns(Overall, df = 6), data = data_mid)
+fit.ns_def <- lm(Wage ~ ns(Overall, df = 6), data = data_def)
+fit.ns_gk <- lm(Wage ~ ns(Overall, df = 6), data = data_gk)
+
+#Plots divided into four positions
+par(mfrow = c(2, 2))
+plot(data_off$Wage ~ data_off$Overall, col = "red", pch = 20, xlim = c(40, 100), ylim = c(0, 600), main = "Offenders")
+lines(seq(40, 100), predict(fit.ns_off, data.frame("Overall"= seq(40, 100))), col = "red", lty = 1, lwd = 1)
+plot(data_mid$Wage ~ data_mid$Overall, col = "deepskyblue", pch = 20, xlim = c(40, 100), ylim = c(0, 600), main = "Midfielders")
+lines(seq(40, 100), predict(fit.ns_mid, data.frame("Overall"= seq(40, 100))), col = "deepskyblue", lty = 1, lwd = 1)
+plot(data_def$Wage ~ data_def$Overall, col = "green", pch = 20, xlim = c(40, 100), ylim = c(0, 600), main = "Defenders")
+lines(seq(40, 100), predict(fit.ns_def, data.frame("Overall"= seq(40, 100))), col = "green", lty = 1, lwd = 1)
+plot(data_gk$Wage ~ data_gk$Overall, col = "orange", pch = 20, xlim = c(40, 100), ylim = c(0, 600), main = "Goalkeepers")
+lines(seq(40, 100), predict(fit.ns_gk, data.frame("Overall"= seq(40, 100))), col = "orange", lty = 1, lwd = 1)
+
+#Integrated plot
+par(mfrow = c(1, 1))
+plot(data$Wage ~ data$Overall, col = c("green", "orange", "deepskyblue", "red")[data$pos], pch = 20, xlim = c(40, 100), ylim = c(0, 600), main = "Natural Cubic Spline for Main Data")
+lines(seq(40, 100), predict(fit.ns_all, data.frame("Overall"= seq(40, 100))), col = "black", lty = 1, lwd = 3)
+lines(seq(40, 100), predict(fit.ns_off, data.frame("Overall"= seq(40, 100))), col = "red", lty = 1, lwd = 1)
+lines(seq(40, 100), predict(fit.ns_mid, data.frame("Overall"= seq(40, 100))), col = "deepskyblue", lty = 1, lwd = 1)
+lines(seq(40, 100), predict(fit.ns_def, data.frame("Overall"= seq(40, 100))), col = "green", lty = 1, lwd = 1)
+lines(seq(40, 100), predict(fit.ns_gk, data.frame("Overall"= seq(40, 100))), col = "orange", lty = 1, lwd = 1)
+legend("topleft", c("All Players", "Offenders", "Midfielders", "Defenders", "Goalkeepers"), col = c("black", "red", "deepskyblue", "green", "orange"), lty = 1, lwd = 2)
+
+par(mfrow = c(2, 2))
+plot(fit.ns_all)
+```
+First 5 plots show observations and natural cubic spline models for each partition. It seems that the natural cubic spline model fits the data well and appropriately shows the increasing wage of highly scored players. From the diagnostic plots, we are able to know that the observation 1, 2 and 4 are outliers since they are earning way too much more than the other soccer players in the world.
+
+###Natural Cubic Spline Testing
+```{r, echo=FALSE}
+library(splines)
+
+fit.ns_tr.all <- lm(Wage ~ ns(Overall, df = 6), data = train)
+fit.ns_tr.off <- lm(Wage ~ ns(Overall, df = 6), data = train_off)
+fit.ns_tr.mid <- lm(Wage ~ ns(Overall, df = 6), data = train_mid)
+fit.ns_tr.def <- lm(Wage ~ ns(Overall, df = 6), data = train_def)
+fit.ns_tr.gk <- lm(Wage ~ ns(Overall, df = 6), data = train_gk)
+
+#Plots for comparing models with test data
+par(mfrow = c(2, 2))
+plot(test_off$Wage ~ test_off$Overall, col = "red", pch = 20, xlim = c(40, 100), ylim = c(0, 600), main = "Offenders")
+lines(seq(40, 100), predict(fit.ns_tr.off, data.frame("Overall"= seq(40, 100))), col = "red", lty = 1, lwd = 1)
+plot(test_mid$Wage ~ test_mid$Overall, col = "deepskyblue", pch = 20, xlim = c(40, 100), ylim = c(0, 600), main = "Midfielders")
+lines(seq(40, 100), predict(fit.ns_tr.mid, data.frame("Overall"= seq(40, 100))), col = "deepskyblue", lty = 1, lwd = 1)
+plot(test_def$Wage ~ test_def$Overall, col = "green", pch = 20, xlim = c(40, 100), ylim = c(0, 600), main = "Defenders")
+lines(seq(40, 100), predict(fit.ns_tr.def, data.frame("Overall"= seq(40, 100))), col = "green", lty = 1, lwd = 1)
+plot(test_gk$Wage ~ test_gk$Overall, col = "orange", pch = 20, xlim = c(40, 100), ylim = c(0, 600), main = "Goalkeepers")
+lines(seq(40, 100), predict(fit.ns_tr.gk, data.frame("Overall"= seq(40, 100))), col = "orange", lty = 1, lwd = 1)
+
+#Integrated plot for comparing models with test data
+par(mfrow = c(1, 1))
+plot(test$Wage ~ test$Overall, col = c("green", "orange", "deepskyblue", "red")[test$pos], pch = 20, xlim = c(40, 100), ylim = c(0, 600), main = "Comparing Natural Cubic Spline Model with Test Data")
+lines(seq(40, 100), predict(fit.ns_tr.all, data.frame("Overall"= seq(40, 100))), col = "black", lty = 1, lwd = 3)
+lines(seq(40, 100), predict(fit.ns_tr.off, data.frame("Overall"= seq(40, 100))), col = "red", lty = 1, lwd = 1)
+lines(seq(40, 100), predict(fit.ns_tr.mid, data.frame("Overall"= seq(40, 100))), col = "deepskyblue", lty = 1, lwd = 1)
+lines(seq(40, 100), predict(fit.ns_tr.def, data.frame("Overall"= seq(40, 100))), col = "green", lty = 1, lwd = 1)
+lines(seq(40, 100), predict(fit.ns_tr.gk, data.frame("Overall"= seq(40, 100))), col = "orange", lty = 1, lwd = 1)
+legend("topleft", c("All Players", "Offenders", "Midfielders", "Defenders", "Goalkeepers"), col = c("black", "red", "deepskyblue", "green", "orange"), lty = 1, lwd = 2)
+```
+Now, we applied natural cubic spline model to fit training data which is also divided into four different positions in order to examine how well this model fits to test data. Those plots include 5 models created with training data and observations from test data. Overall, those models fit well on test data from visualization. Also, test data does not contain observation 1 and 2, Cristiano Ronaldo and Lionel Messi. This helped ‘offenders’ plot look more accurate.
+
+###MSE Comparison
+```{r, echo=FALSE}
+#MSE of NS model for all players
+x.train_all <- data.frame(train$Overall)
+x.test_all <- data.frame(test$Overall)
+y.train_all <- data.frame(train$Wage)
+y.test_all <- data.frame(test$Wage)
+
+yhat.ns_all <- predict(fit.ns_tr.all, newx = x.test_all)
+
+mse.ns_all <- mean((y.test_all - yhat.ns_all)^2)
+mse.ns_all
+
+#MSE of NS model for offenders
+x.train_off <- data.frame(train_off$Overall)
+x.test_off <- data.frame(test_off$Overall)
+y.train_off <- data.frame(train_off$Wage)
+y.test_off <- data.frame(test_off$Wage)
+
+yhat.ns_off <- predict(fit.ns_tr.off, newx = x.test_off)
+
+mse.ns_off <- mean((y.test_off - yhat.ns_off)^2)
+mse.ns_off
+
+#MSE of NS model for midfielders
+x.train_mid <- data.frame(train_mid$Overall)
+x.test_mid <- data.frame(test_mid$Overall)
+y.train_mid <- data.frame(train_mid$Wage)
+y.test_mid <- data.frame(test_mid$Wage)
+
+yhat.ns_mid <- predict(fit.ns_tr.mid, newx = x.test_mid)
+
+mse.ns_mid <- mean((y.test_mid - yhat.ns_mid)^2)
+mse.ns_mid
+
+#MSE of NS model for defenders
+x.train_def <- data.frame(train_def$Overall)
+x.test_def <- data.frame(test_def$Overall)
+y.train_def <- data.frame(train_def$Wage)
+y.test_def <- data.frame(test_def$Wage)
+
+yhat.ns_def <- predict(fit.ns_tr.def, newx = x.test_def)
+
+mse.ns_def <- mean((y.test_def - yhat.ns_def)^2)
+mse.ns_def
+
+#MSE of NS model for goalkeepers
+x.train_gk <- data.frame(train_gk$Overall)
+x.test_gk <- data.frame(test_gk$Overall)
+y.train_gk <- data.frame(train_gk$Wage)
+y.test_gk <- data.frame(test_gk$Wage)
+
+yhat.ns_gk <- predict(fit.ns_tr.gk, newx = x.test_gk)
+
+mse.ns_gk <- mean((y.test_gk - yhat.ns_gk)^2)
+mse.ns_gk
+```
+We also examined the mean squared error for each testing model. The natural cubic spline model for whole data has 968.35 for MSE, which we believe is not too high since the measure of Wage variable is 3-digit figure. It is able to be found that the testing model for offenders has significantly higher MSE than the others. This is because all three outliers are in offender position, and thus, they made MSE larger.
+
+**Conclusion**: Most of soccer players have average Overall scores between 55 and 85. The critical point of wage prediction happens from Overall scores 85 and above. The wage increment occurs drstically in this region. To show this clearly, we decided to utilize natural cubic spline method to fit in the best model. From the result, it seems natural cubic spline model works well except for three outliers. They earn much more than others because there are a few players who have scores above 92. This is why we call them "star players". Those three outliers should be critical to predict wage for a new player who has higher score, or their wage might decrease when a better player comes up.
+
+##Conclusion
+&nbsp;&nbsp;&nbsp;&nbsp;  After performing several different regression analyses and comparing models from each of the regression, we used Mean Squared Error(MSE) for our method to decide which model is the best fitting model. Upon achieving all regression models and finding the MSE values, we were able to draw a conclusion that LASSO regression model is the one that fits our data the most. According to the MSE table we created below, we can see that linear model is actually quite good, most fitting model for Forward and Midfielder positions, but its MSE increases exponentially when it is compared for Defender and Goalkeeper positions among other regression models. Therefore, overall LASSO regression shows the most consistent, and yet, low MSE values throughout all positions, making it the best fitting model.  
+
+
+```{r, echo=FALSE}
+
+
+
+position <- c("Forward", "Midfielder", "Defender", "Goalkeeper")
+mse.ridge_conclusion <- c(mse.ridge.off, mse.ridge.mid, mse.ridge.def, mse.ridge.gk)
+mse.lasso_conclusion <- c(mse.lasso.off, mse.lasso.mid, mse.lasso.def, mse.lasso.gk)
+mse.fit3_conclusion <-(mse(fit3))
+mse.fit4_conclusion <-(mse(fit4))
+mse.fit5_conclusion <-(mse(fit5))
+mse.fit6_conclusion <-(mse(fit6))
+mse.linear_conclusion <-c(mse.fit3_conclusion, mse.fit4_conclusion, mse.fit5_conclusion, mse.fit6_conclusion)
+
+mse.table_conclusion <- cbind(position, mse.linear_conclusion, mse.ridge_conclusion, mse.lasso_conclusion)
+colnames(mse.table_conclusion) <- c("Position", "Linear MSE", "Ridge MSE", "LASSO MSE")
+print(mse.table_conclusion)
+
+
+```
+  
+&nbsp;&nbsp;&nbsp;&nbsp;  As for predicting the next FIFA FIFPro World XI, we used data selection method to extract the top players from each position using the variable *potential*. Then, we were able to draw top 10 players for each position in order of high to low values.
+```{r, echo= FALSE}
+data_def_practice=data_def
+data_def_practice=data_def_practice[,c(-1,-3,-6)]
+data_def_practice=data_def_practice[,1:38]
+rownames(data_def_practice) <- make.names(data_def[,1], unique = TRUE)
+data_def_practice <- data_def_practice[order(data_def_practice$Potential, decreasing = TRUE),]
+data_def_practice=data_def_practice[1:10,]
+# heatmaply(as.matrix(train_mid_practice), Rowv = NA, Colv = NA, scale = "column")
+
+data_off_practice=data_off
+data_off_practice=data_off_practice[,c(-1,-3,-6)]
+data_off_practice=data_off_practice[,1:38]
+rownames(data_off_practice) <- make.names(data_off[,1], unique = TRUE)
+data_off_practice <- data_off_practice[order(data_off_practice$Potential, decreasing = TRUE),]
+data_off_practice=data_off_practice[1:10,]
+# heatmaply(as.matrix(train_mid_practice), Rowv = NA, Colv = NA, scale = "column")
+
+data_mid_practice=data_mid
+data_mid_practice=data_mid_practice[,c(-1,-3,-6)]
+data_mid_practice=data_mid_practice[,1:38]
+rownames(data_mid_practice) <- make.names(data_mid[,1], unique = TRUE)
+data_mid_practice <- data_mid_practice[order(data_mid_practice$Potential, decreasing = TRUE),]
+data_mid_practice=data_mid_practice[1:10,]
+# heatmaply(as.matrix(train_mid_practice), Rowv = NA, Colv = NA, scale = "column")
+
+data_gk_practice=data_gk
+data_gk_practice=data_gk_practice[,c(-1,-3,-6)]
+data_gk_practice=data_gk_practice[,1:38]
+rownames(data_gk_practice) <- make.names(data_gk[,1], unique = TRUE)
+data_gk_practice <- data_gk_practice[order(data_gk_practice$Potential, decreasing = TRUE),]
+data_gk_practice=data_gk_practice[1:10,]
+
+best11_prediction=as.data.frame(cbind(row.names(data_off_practice), row.names(data_mid_practice), row.names(data_def_practice), row.names(data_gk_practice)))
+`colnames<-`(best11_prediction, c("OFF","MID","DEF","GK"))
+```
+  
+Following the number of nominees for each position for this year's FIFA FIFPro World XI, next year's nominees will be:  
+
+* Forward: Cristiano.Ronaldo, Neymar, K..MbappÃ.  
+
+* Midfielder: K..De.Bruyne, P..Pogba, Marco.Asensio  
+
+* Defense: R..Varane, Sergio.Ramos, N..KantÃ., G..Chiellini  
+
+* Goalkeeper: G..Donnarumma  
+
+Since the World XI are voted subjectively by 50,000 professional football players worldwide, the actual nominees may vary from our results as they are not purely judged by player attributes, but also include popularity, reputation, and out-of-sports activites. For potential improvements for our analyses, we believe there may exist regression models that suit FIFA 18 dataset better than LASSO regression. Some weighted analysis such as kernel distributions could be used to improve the accuracy and fitness of models.
+
+
+
+
+##Appendix
+
+###(APX 1) Summary Statistics of All Variables
+```{r, echo=FALSE}
+library(pastecs)
+stat.desc(data[,c(-1,-3,-6)], basic=F)
+stat.desc(data[,c(-1,-3,-6)], desc=F)
+```
+
+###(APX 2) Heatmap with Hierarchical Cluster Option
+```{r, echo=FALSE}
+heatmap(as.matrix(train_heatmap), scale = "column", hclustfun = hclust, revC = TRUE, main="Heatmap of Player Stats")
+
+```
+
+###(APX 3) MSE and Ridge/LASSo Plots for All Positions
+```{r, echo= FALSE}
+par(mfrow = c(2, 2))
+
+plot(ridge.off2, main="Ridge - Offender")
+plot(ridge.off2$glmnet.fit, xvar="lambda", main="Ridge - Offender")
+plot(lasso.off2, main="LASSO - Offender")
+plot(lasso.off2$glmnet.fit, xvar="lambda", main="LASSO - Offender")
+
+par(mfrow = c(2, 2))
+
+plot(ridge.mid2, main="Ridge - Midfielder")
+plot(ridge.mid2$glmnet.fit, xvar="lambda", main="Ridge - Midfielder")
+plot(lasso.mid2, main="LASSO - Midfielder")
+plot(lasso.mid2$glmnet.fit, xvar="lambda", main="LASSO - Midfielder")
+
+par(mfrow = c(2, 2))
+
+plot(ridge.def2, main="Ridge - Defender")
+plot(ridge.def2$glmnet.fit, xvar="lambda", main="Ridge - Defender")
+plot(lasso.def2, main="LASSO - Defender")
+plot(lasso.def2$glmnet.fit, xvar="lambda", main="LASSO - Defender")
+
+par(mfrow = c(2, 2))
+
+plot(ridge.gk2, main="Ridge - Goalkeeper")
+plot(ridge.gk2$glmnet.fit, xvar="lambda", main="Ridge - Goalkeeper")
+plot(lasso.gk2, main="LASSO - Goalkeeper")
+plot(lasso.gk2$glmnet.fit, xvar="lambda", main="LASSO - Goalkeeper")
+
+yhat.ridge.gk <- predict(ridge.gk2, s=ridge.gk2$lambda.1se, newx=x.test_gk)
+yhat.lasso.gk <- predict(lasso.gk2, s=lasso.gk2$lambda.1se, newx=x.test_gk)
+
+mse.ridge.gk <- mean((y.test_gk - yhat.ridge.gk)^2)
+mse.lasso.gk <- mean((y.test_gk - yhat.lasso.gk)^2)
+
+position <- c("Offender", "Midfielder", "Defender", "Goalkeeper")
+mse.ridge <- c(mse.ridge.off, mse.ridge.mid, mse.ridge.def, mse.ridge.gk)
+mse.lasso <- c(mse.lasso.off, mse.lasso.mid, mse.lasso.def, mse.lasso.gk)
+mse.table <- cbind(position, mse.ridge, mse.lasso)
+colnames(mse.table) <- c("Position", "Ridge MSE", "LASSO MSE")
+print(mse.table)
+```
+
+
